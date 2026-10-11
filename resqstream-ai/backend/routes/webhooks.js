@@ -2,6 +2,9 @@ const crypto = require('crypto');
 const express = require('express');
 
 const router = express.Router();
+const WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_WINDOW = 60;
+const recentRequestsByIp = new Map();
 
 function timingSafeEqualHex(a, b) {
   const bufA = Buffer.from(a || '', 'hex');
@@ -15,22 +18,44 @@ function timingSafeEqualHex(a, b) {
 }
 
 function verifyCloudinaryWebhook(req) {
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const webhookSecret = process.env.CLOUDINARY_WEBHOOK_SECRET;
   const providedSignature = req.get('X-Cld-Signature') || req.get('x-cld-signature');
   const providedTimestamp = req.get('X-Cld-Timestamp') || req.get('x-cld-timestamp');
+  const timestampSeconds = Number(providedTimestamp);
 
-  if (!apiSecret || !providedSignature || !providedTimestamp || !req.rawBody) {
+  if (!webhookSecret || !providedSignature || !providedTimestamp || !req.rawBody || Number.isNaN(timestampSeconds)) {
     return false;
   }
 
-  const signedPayload = `${providedTimestamp}${req.rawBody}${apiSecret}`;
-  const expectedSha1 = crypto.createHash('sha1').update(signedPayload).digest('hex');
-  const expectedSha256 = crypto.createHash('sha256').update(signedPayload).digest('hex');
+  if (Math.abs(Math.floor(Date.now() / 1000) - timestampSeconds) > 300) {
+    return false;
+  }
 
-  return timingSafeEqualHex(providedSignature, expectedSha1) || timingSafeEqualHex(providedSignature, expectedSha256);
+  const signedPayload = `${providedTimestamp}.${req.rawBody}`;
+  const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
+
+  return timingSafeEqualHex(providedSignature, expectedSignature);
 }
 
-router.post('/cloudinary-webhook', (req, res) => {
+function rateLimitWebhook(req, res, next) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const bucket = recentRequestsByIp.get(ip);
+
+  if (!bucket || now - bucket.windowStart > WINDOW_MS) {
+    recentRequestsByIp.set(ip, { count: 1, windowStart: now });
+    return next();
+  }
+
+  if (bucket.count >= MAX_REQUESTS_PER_WINDOW) {
+    return res.status(429).json({ error: 'Rate limit exceeded' });
+  }
+
+  bucket.count += 1;
+  return next();
+}
+
+router.post('/cloudinary-webhook', rateLimitWebhook, (req, res) => {
   if (!verifyCloudinaryWebhook(req)) {
     return res.status(401).json({ error: 'Invalid webhook signature' });
   }
