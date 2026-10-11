@@ -1,0 +1,22 @@
+[
+  {
+    "assetId": "sample-asset-001",
+    "publicId": "resqstream-ai/uploads/drone-thermal-001",
+    "secureUrl": "https://res.cloudinary.com/demo/video/upload/v1730000000/resqstream-ai/uploads/drone-thermal-001.mp4",
+    "thumbnailUrl": "https://res.cloudinary.com/demo/video/upload/f_jpg,q_auto,w_400/resqstream-ai/uploads/drone-thermal-001.jpg",
+    "resourceType": "video",
+    "sensorType": "Drone Thermal",
+    "location": { "lat": 19.0748, "lng": 72.8856 },
+    "createdAt": "2026-09-20T14:25:00.000Z"
+  },
+  {
+    "assetId": "sample-asset-002",
+    "publicId": "resqstream-ai/uploads/snake-cam-void-007",
+    "secureUrl": "https://res.cloudinary.com/demo/video/upload/v1730000010/resqstream-ai/uploads/snake-cam-void-007.mp4",
+    "thumbnailUrl": "https://res.cloudinary.com/demo/video/upload/f_jpg,q_auto,w_400/resqstream-ai/uploads/snake-cam-void-007.jpg",
+    "resourceType": "video",
+    "sensorType": "Snake-Cam",
+    "location": { "lat": 19.0811, "lng": 72.8792 },
+    "createdAt": "2026-09-20T14:26:30.000Z"
+  }
+]
