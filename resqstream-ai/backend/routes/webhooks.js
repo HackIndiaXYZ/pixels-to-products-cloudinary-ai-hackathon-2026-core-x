@@ -1,10 +1,14 @@
 const crypto = require('crypto');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 60;
-const recentRequestsByIp = new Map();
+const webhookRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 function timingSafeEqualHex(a, b) {
   const bufA = Buffer.from(a || '', 'hex');
@@ -37,25 +41,7 @@ function verifyCloudinaryWebhook(req) {
   return timingSafeEqualHex(providedSignature, expectedSignature);
 }
 
-function rateLimitWebhook(req, res, next) {
-  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
-  const now = Date.now();
-  const bucket = recentRequestsByIp.get(ip);
-
-  if (!bucket || now - bucket.windowStart > WINDOW_MS) {
-    recentRequestsByIp.set(ip, { count: 1, windowStart: now });
-    return next();
-  }
-
-  if (bucket.count >= MAX_REQUESTS_PER_WINDOW) {
-    return res.status(429).json({ error: 'Rate limit exceeded' });
-  }
-
-  bucket.count += 1;
-  return next();
-}
-
-router.post('/cloudinary-webhook', rateLimitWebhook, (req, res) => {
+router.post('/cloudinary-webhook', webhookRateLimit, (req, res) => {
   if (!verifyCloudinaryWebhook(req)) {
     return res.status(401).json({ error: 'Invalid webhook signature' });
   }
